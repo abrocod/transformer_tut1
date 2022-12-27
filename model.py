@@ -34,14 +34,24 @@ class TransformerModel(nn.Module):
         Args:
             src: Tensor, shape [seq_len, batch_size]
             src_mask: Tensor, shape [seq_len, seq_len]
+            
+            ex:
+            bptt = 35
+            batch_size = 20
+            src.shape: torch.Size([35, 20])
 
         Returns:
             output Tensor of shape [seq_len, batch_size, ntoken]
         """
-        src = self.encoder(src) * math.sqrt(self.d_model)
-        src = self.pos_encoder(src)
-        output = self.transformer_encoder(src, src_mask)
-        output = self.decoder(output)
+        # import pdb; pdb.set_trace()
+        
+        # after encoder, src shape change from torch.Size([35, 20]) -> torch.Size([35, 20, 200])
+        src = self.encoder(src) * math.sqrt(self.d_model) 
+        
+        src = self.pos_encoder(src) # src shape remain unchanged. 
+        
+        output = self.transformer_encoder(src, src_mask) # output.shape: torch.Size([35, 20, 200])
+        output = self.decoder(output) # output.shape: torch.Size([35, 20, 28782])
         return output
 
 

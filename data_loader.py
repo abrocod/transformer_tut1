@@ -24,8 +24,8 @@ def data_process(raw_text_iter: dataset.IterableDataset, tokenizer, vocab) -> Te
     return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
 
-def batchify(data: Tensor, bsz: int, device) -> Tensor:
-    """Divides the data into bsz separate sequences, removing extra elements
+def batchify(data: Tensor, batch_size: int, device) -> Tensor:
+    """Divides the data into bsz (batch size) separate sequences, removing extra elements
     that wouldn't cleanly fit.
 
     Args:
@@ -35,9 +35,9 @@ def batchify(data: Tensor, bsz: int, device) -> Tensor:
     Returns:
         Tensor of shape [N // bsz, bsz]
     """
-    seq_len = data.size(0) // bsz
-    data = data[:seq_len * bsz]
-    data = data.view(bsz, seq_len).t().contiguous()
+    seq_len = data.size(0) // batch_size
+    data = data[:seq_len * batch_size]
+    data = data.view(batch_size, seq_len).t().contiguous()
     return data.to(device)
 
 
@@ -51,6 +51,7 @@ def get_batch(source: Tensor, i: int, bptt: int) -> Tuple[Tensor, Tensor]:
         tuple (data, target), where data has shape [seq_len, batch_size] and
         target has shape [seq_len * batch_size]
     """
+    # import pdb; pdb.set_trace()
     seq_len = min(bptt, len(source) - 1 - i)
     data = source[i:i+seq_len]
     target = source[i+1:i+1+seq_len].reshape(-1)
@@ -97,3 +98,5 @@ if __name__ == '__main__':
     val_data = get_data(split='valid', batch_size= 10, vocab=vocab, device=device)
     print(get_batch(test_data, 100, bptt=bptt)[1].shape)
     print(get_batch(val_data, 100, bptt=bptt)[1].shape)
+    
+    data, targets = get_batch(train_data, i=10, bptt=bptt)

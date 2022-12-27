@@ -11,21 +11,28 @@ from model import TransformerModel, generate_square_subsequent_mask
 from data_loader import *
 
 
-def train(model: nn.Module, device, train_data, bptt, vocab) -> None:
+def train_one_epoch(model: nn.Module, device, train_data, bptt, vocab) -> None:
     model.train()  # turn on train mode
     total_loss = 0.
     log_interval = 200
     start_time = time.time()
-    src_mask = generate_square_subsequent_mask(bptt).to(device)
+    src_mask = generate_square_subsequent_mask(bptt).to(device) # src_mask.shape: bptt * bptt
     ntokens = len(vocab)
 
     num_batches = len(train_data) // bptt
     for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
         data, targets = get_batch(train_data, i, bptt=bptt)
+        # data.shape: torch.Size([35, 20]) <- 35 is the input sequence lengh (bptt)
+        # 20 is the batch size, i.e. parallel size
+        
         seq_len = data.size(0)
         if seq_len != bptt:  # only on last batch
             src_mask = src_mask[:seq_len, :seq_len]
         output = model(data, src_mask)
+        
+        # output.shape: torch.Size([35, 20, 28782])
+        # target.shape: torch.Size([700])
+        # output.view(-1, ntokens).shape: torch.Size([700, 28782])
         loss = criterion(output.view(-1, ntokens), targets)
 
         optimizer.zero_grad()
@@ -35,12 +42,12 @@ def train(model: nn.Module, device, train_data, bptt, vocab) -> None:
 
         total_loss += loss.item()
         if batch % log_interval == 0 and batch > 0:
-            lr = scheduler.get_last_lr()[0]
+            learning_rate = scheduler.get_last_lr()[0]
             ms_per_batch = (time.time() - start_time) * 1000 / log_interval
             cur_loss = total_loss / log_interval
             ppl = math.exp(cur_loss)
             print(f'| epoch {epoch:3d} | {batch:5d}/{num_batches:5d} batches | '
-                  f'lr {lr:02.2f} | ms/batch {ms_per_batch:5.2f} | '
+                  f'lr {learning_rate:02.2f} | ms/batch {ms_per_batch:5.2f} | '
                   f'loss {cur_loss:5.2f} | ppl {ppl:8.2f}')
             total_loss = 0
             start_time = time.time()
@@ -82,7 +89,7 @@ if __name__ == '__main__':
     test_data = get_data(split='test', batch_size= 10, vocab=vocab, device=device)
     val_data = get_data(split='valid', batch_size= 10, vocab=vocab, device=device)
     
-    bptt = 35
+    bptt = 35 # Backpropagation through time <- I think this is the sequence length the model consumes
     print(get_batch(train_data, 100, bptt=bptt)[0].shape)
     print(get_batch(train_data, 100, bptt=bptt)[1].shape)
 
@@ -98,7 +105,7 @@ if __name__ == '__main__':
 
     for epoch in range(1, epochs + 1):
         epoch_start_time = time.time()
-        train(model, device, train_data, bptt, vocab)
+        train_one_epoch(model, device, train_data, bptt, vocab)
         val_loss = evaluate(model, val_data, device, bptt, vocab)
         val_ppl = math.exp(val_loss)
         elapsed = time.time() - epoch_start_time
