@@ -14,18 +14,27 @@ class TransformerModel(nn.Module):
                  nlayers: int, dropout: float = 0.5):
         super().__init__()
         self.model_type = 'Transformer'
+        
+        self.d_model = d_model
+        
+        self.embedding_encoder = nn.Embedding(ntoken, d_model) # d_model: embed dimension, e.g. 200
         self.pos_encoder = PositionalEncoding(d_model, dropout)
+        
+        # d_model: input feature dimension, i.e. embedding layer dimension 
+        # d_hid: fully connected layer dimension
+        # often set d_model == d_hid
+        # Note: d_hid won't impact the output dimension of TransformerEncoderLayer
+        # the output dimension is still d_model 
         encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Embedding(ntoken, d_model) # d_model: embed dimension, e.g. 200
-        self.d_model = d_model
+        
         self.decoder = nn.Linear(d_model, ntoken)
 
         self.init_weights()
 
     def init_weights(self) -> None:
         initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
+        self.embedding_encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
@@ -43,14 +52,23 @@ class TransformerModel(nn.Module):
         Returns:
             output Tensor of shape [seq_len, batch_size, ntoken]
         """
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         
         # after encoder, src shape change from torch.Size([35, 20]) -> torch.Size([35, 20, 200])
-        src = self.encoder(src) * math.sqrt(self.d_model) 
+        # input: [seq_len, batch_size]
+        # output: [seq_len, batch_size, d_model(embedding dimension)]
+        src = self.embedding_encoder(src) * math.sqrt(self.d_model) 
         
-        src = self.pos_encoder(src) # src shape remain unchanged. 
+        # input/output dimension not changed
+        src = self.pos_encoder(src)  
         
+        # input src:  [seq_len, batch_size, d_model]
+        # input mask: [seq_len, seq_len]
+        # output: [seq_len, batch_size, d_model]
         output = self.transformer_encoder(src, src_mask) # output.shape: torch.Size([35, 20, 200])
+        
+        # input: [seq_len, batch_size, d_model]
+        # ouptut: [seq_len, batch_size, vocab_size]
         output = self.decoder(output) # output.shape: torch.Size([35, 20, 28782])
         return output
 
